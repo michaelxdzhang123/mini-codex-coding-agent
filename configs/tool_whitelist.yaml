@@ -1,0 +1,148 @@
+version: 1
+
+policy:
+  mode: allowlist
+  default_action: deny
+  require_exact_match: true
+  normalize_whitespace: true
+  case_sensitive: true
+
+execution:
+  allow_shell: false
+  allow_chained_commands: false
+  allow_background_execution: false
+  allow_redirection: false
+  allow_pipes: false
+  allow_subshells: false
+  allow_env_prefixes: false
+  allowed_working_directories:
+    - "."
+  timeout_seconds:
+    default: 600
+    dev: 3600
+    worker: 3600
+    test: 1800
+    lint: 1200
+    format: 1200
+    db: 1200
+
+allowed_commands:
+  - id: dev
+    command: "make dev"
+    category: development
+    description: "Start the Flask development server via Makefile"
+    timeout_seconds: 3600
+    requires_approval: false
+
+  - id: worker
+    command: "make worker"
+    category: background
+    description: "Start the approved background worker via Makefile"
+    timeout_seconds: 3600
+    requires_approval: false
+
+  - id: test
+    command: "make test"
+    category: test
+    description: "Run the approved test suite"
+    timeout_seconds: 1800
+    requires_approval: false
+
+  - id: lint
+    command: "make lint"
+    category: lint
+    description: "Run approved lint and type checks"
+    timeout_seconds: 1200
+    requires_approval: false
+
+  - id: format
+    command: "make format"
+    category: format
+    description: "Run approved formatters"
+    timeout_seconds: 1200
+    requires_approval: true
+
+  - id: db-upgrade
+    command: "make db-upgrade"
+    category: database
+    description: "Apply approved Alembic migrations"
+    timeout_seconds: 1200
+    requires_approval: true
+
+blocked_patterns:
+  exact:
+    - "sudo"
+    - "su"
+    - "ssh"
+    - "scp"
+    - "sftp"
+    - "systemctl"
+    - "service"
+    - "reboot"
+    - "shutdown"
+
+  contains:
+    - " rm -rf"
+    - "rm -rf "
+    - "curl "
+    - "wget "
+    - "| bash"
+    - "| sh"
+    - "&&"
+    - "||"
+    - ";"
+    - ">"
+    - ">>"
+    - "<"
+    - "$("
+    - "`"
+    - "../"
+    - "docker system prune"
+    - "docker rm -f"
+    - "apt install"
+    - "apt-get install"
+    - "yum install"
+    - "dnf install"
+    - "brew install"
+    - "pip install"
+    - "chmod -R"
+    - "chown -R"
+    - "mkfs"
+    - "dd "
+    - "mount "
+    - "umount "
+
+logging:
+  log_all_requests: true
+  log_denied_requests: true
+  log_allowed_requests: true
+  include_timestamp: true
+  include_working_directory: true
+  include_exit_code: true
+  include_duration: true
+
+approval:
+  require_user_approval_for_categories:
+    - format
+    - database
+  require_user_approval_if_not_exact_allowlist_match: true
+
+notes:
+  - "This project uses a default-deny command policy."
+  - "Only approved Makefile targets may be executed."
+  - "Raw shell commands are intentionally blocked in Phase 1."
+  - "If new capabilities are needed, add a Makefile target first, then review and add it here."
+
+  - id: index-knowledge
+    command: "make index-knowledge"
+    category: rag
+    description: "Build or refresh the local knowledge index"
+    timeout_seconds: 3600
+    requires_approval: true
+
+  - id: query-knowledge
+    command: "make query-knowledge"
+    category: rag
+    description: "Run a local knowledge retrieval query"
+    timeout_seconds: 600
+    requires_approval: false

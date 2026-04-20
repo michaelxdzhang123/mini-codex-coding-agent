@@ -1,0 +1,20 @@
+sources:
+  - name: project_docs
+    path: "./data/knowledge/project_docs"
+    types:
+      - "md"
+      - "txt"
+      - "pdf"
+
+  - name: coding_standards
+    path: "./data/knowledge/coding_standards"
+    types:
+      - "md"
+      - "txt"
+
+settings:
+  chunk_size: 800
+  chunk_overlap: 120
+  top_k: 5
+  persist_directory: "./data/chroma"
+  collection_name: "local_knowledge"
