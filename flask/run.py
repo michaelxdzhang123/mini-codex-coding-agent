@@ -5,7 +5,8 @@ import os
 import sys
 
 # Add the project root to Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _project_root)
 
 from flaskr import create_app
 

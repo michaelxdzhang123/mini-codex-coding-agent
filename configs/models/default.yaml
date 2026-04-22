@@ -1,0 +1,63 @@
+version: 1
+
+# ─── Local Model Registry ─────────────────────────────────────────────
+# Each entry represents a model that can be used by the router.
+# In M2 all providers are "mock" so the system works without real
+# local models installed. Later milestones may add ollama, llama.cpp,
+# vllm, sentence-transformers, etc.
+
+models:
+  - id: mock-coder
+    name: Mock Coder
+    role: coder
+    provider: mock
+    enabled: true
+    config:
+      response_template: |
+        [MockCoder:{model_id}]
+        ```python
+        # Placeholder code for: {prompt}
+        def example():
+            pass
+        ```
+
+  - id: mock-instruct
+    name: Mock Instruct
+    role: instruct
+    provider: mock
+    enabled: true
+    config:
+      response_template: |
+        [MockInstruct:{model_id}]
+        Summary/Plan for: {prompt}
+
+        1. Step one
+        2. Step two
+        3. Step three
+
+  - id: mock-embedding
+    name: Mock Embedding
+    role: embedding
+    provider: mock
+    enabled: true
+    config:
+      response_template: "[MockEmbedding:{model_id}] Embedding vector placeholder for: {prompt}"
+
+  - id: mock-reranker
+    name: Mock Reranker
+    role: reranker
+    provider: mock
+    enabled: true
+    config:
+      response_template: "[MockReranker:{model_id}] Reranked results placeholder for: {prompt}"
+
+# ─── Project-Level Defaults ───────────────────────────────────────────
+# The router uses these defaults when a task maps to a role.
+# Business logic must not hardcode model names; it should always
+# query the router using the task name or role.
+
+project_defaults:
+  default_coder: mock-coder
+  default_instruct: mock-instruct
+  default_embedding: mock-embedding
+  default_reranker: mock-reranker

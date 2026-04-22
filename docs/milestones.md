@@ -78,7 +78,7 @@ Allow users to create tasks and inspect approved local repositories.
 
 ---
 
-## M2 — Model Router
+## M2 — Model Router ✅ Completed
 
 ### Goal
 Introduce a local multi-model routing layer.
@@ -101,6 +101,14 @@ Introduce a local multi-model routing layer.
 - model config file(s)
 - mock local model adapter
 
+### Delivered
+- `core/models/roles.py` — `ModelRole` enum and `role_for_task()` mapping
+- `core/models/config.py` — `ModelConfig`, `ProjectDefaults`, `ModelRegistryConfig`, `ModelRegistry`
+- `core/models/adapter.py` — `ModelAdapter` base class + `MockModelAdapter`
+- `core/models/router.py` — `ModelRouter` with `RoutingPolicy`
+- `configs/models/default.yaml` — default mock model registry
+- `tests/test_model_router.py` — 18 tests covering routing, fallback, config loading
+
 ### Done When
 - system can decide which model role should handle a step
 - routing is configurable
@@ -109,7 +117,7 @@ Introduce a local multi-model routing layer.
 
 ---
 
-## M3 — Local RAG Foundation
+## M3 — Local RAG Foundation ✅ Completed
 
 ### Goal
 Add minimal local RAG support for project knowledge retrieval.
@@ -134,6 +142,15 @@ Add minimal local RAG support for project knowledge retrieval.
 - `configs/rag_sources/default.yaml`
 - local knowledge directories
 - working local indexing and query flow
+
+### Delivered
+- `core/rag/chunker.py` — sliding-window text chunking (already present)
+- `core/rag/source_registry.py` — YAML knowledge source registry with path validation
+- `core/rag/indexer.py` — ChromaDB-based indexer with `DefaultEmbeddingFunction`
+- `core/rag/retriever.py` — ChromaDB semantic retriever returning `RetrievedChunk` with source labels
+- `configs/rag_sources/default.yaml` — approved knowledge source config
+- `tests/test_rag.py` — 12 tests covering index, query, source labels, empty collection, roundtrip
+- Connected M3 RAG into M1 Flask app (`flask/flaskr/blog.py`) so chat uses vector retrieval when `use_rag=true`
 
 ### Done When
 - system can index approved local knowledge

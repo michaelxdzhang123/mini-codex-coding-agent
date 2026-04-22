@@ -108,7 +108,9 @@ class SourceRegistry:
             chunk_size=int(raw_settings.get("chunk_size", 800)),
             chunk_overlap=int(raw_settings.get("chunk_overlap", 120)),
             top_k=int(raw_settings.get("top_k", 5)),
-            persist_directory=self._resolve_path(raw_settings.get("persist_directory", "./data/chroma")),
+            persist_directory=self._resolve_path(
+                raw_settings.get("persist_directory", "./data/chroma")
+            ),
             collection_name=str(raw_settings.get("collection_name", "local_knowledge")),
         )
 

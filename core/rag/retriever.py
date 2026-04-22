@@ -1,7 +1,12 @@
+"""Local knowledge retriever: query ChromaDB and return relevant chunks."""
+
 from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+
+import chromadb
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
 from core.rag.source_registry import RAGConfig, SourceRegistry
 
@@ -23,22 +28,34 @@ class KnowledgeRetriever:
     Responsible for:
     1. receiving a user query
     2. embedding the query
-    3. querying local vector storage
-    4. returning top-k chunks
-
-    In this interface skeleton, result shape and flow are defined.
-    Codex should implement:
-    - embedding model loading
-    - Chroma query logic
-    - result mapping
+    3. querying local vector storage (ChromaDB)
+    4. returning top-k chunks with source labels
     """
+
+    # Shared embedder instance to match the indexer.
+    _embedder: DefaultEmbeddingFunction | None = None
 
     def __init__(self, config: RAGConfig) -> None:
         self.config = config
+        self._client = chromadb.PersistentClient(
+            path=str(config.settings.persist_directory)
+        )
+        # get_or_create so queries against an empty index don't crash.
+        self._collection = self._client.get_or_create_collection(
+            name=config.settings.collection_name
+        )
+
+    @classmethod
+    def _get_embedder(cls) -> DefaultEmbeddingFunction:
+        if cls._embedder is None:
+            cls._embedder = DefaultEmbeddingFunction()
+        return cls._embedder
 
     def query(self, query_text: str, top_k: int | None = None) -> list[RetrievedChunk]:
         """
         Retrieve top-k relevant knowledge chunks for a query.
+
+        Returns chunks ordered by relevance (highest score first).
         """
         query_text = query_text.strip()
         if not query_text:
@@ -46,19 +63,49 @@ class KnowledgeRetriever:
 
         effective_top_k = top_k or self.config.settings.top_k
 
-        # TODO: Codex should implement:
-        # 1. create/load persistent Chroma client
-        # 2. load embedding model
-        # 3. embed query_text
-        # 4. query collection
-        # 5. map records -> RetrievedChunk
-        _ = effective_top_k
+        if self._collection.count() == 0:
+            return []
 
-        raise NotImplementedError("Knowledge retrieval is not implemented yet")
+        embedder = self._get_embedder()
+        query_embedding = embedder([query_text])
 
-    # Optional extension for Codex later:
-    # def query_with_source_filter(self, query_text: str, source_names: list[str]) -> list[RetrievedChunk]:
-    #     raise NotImplementedError
+        results = self._collection.query(
+            query_embeddings=query_embedding,
+            n_results=effective_top_k,
+            include=["documents", "metadatas", "distances"],
+        )
+
+        return self._map_results(results)
+
+    def _map_results(self, raw: dict) -> list[RetrievedChunk]:
+        """Convert Choma query results into RetrievedChunk objects."""
+        chunks: list[RetrievedChunk] = []
+
+        ids = raw.get("ids", [[]])[0]
+        documents = raw.get("documents", [[]])[0]
+        metadatas = raw.get("metadatas", [[]])[0]
+        distances = raw.get("distances", [[]])[0]
+
+        for i in range(len(ids)):
+            distance = float(distances[i]) if distances else 0.0
+            # Convert L2 distance to a 0-1 similarity score.
+            score = 1.0 / (1.0 + distance)
+
+            meta = dict(metadatas[i]) if metadatas else {}
+            chunks.append(
+                RetrievedChunk(
+                    chunk_id=ids[i],
+                    text=documents[i] or "",
+                    source_name=str(meta.get("source_name", "")),
+                    source_path=str(meta.get("source_path", "")),
+                    score=round(score, 4),
+                    metadata=meta,
+                )
+            )
+
+        # Chroma already returns results ordered by distance (ascending).
+        # Since score = 1/(1+distance), the order is already best-first.
+        return chunks
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

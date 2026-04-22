@@ -1,15 +1,53 @@
-import json
 import uuid
-from datetime import datetime
+from pathlib import Path
 
-from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, jsonify, current_app
-)
-from werkzeug.exceptions import abort
 from werkzeug.utils import secure_filename
 
+from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, url_for
 from flaskr.auth import login_required
 from flaskr.db import get_db
+
+# ─── M2: Model Router integration ─────────────────────────────────────
+try:
+    from core.models import ModelRegistry, ModelRole, ModelRouter, RoutingPolicy
+
+    _project_root = Path(__file__).resolve().parent.parent.parent
+    _model_registry = ModelRegistry(
+        _project_root / "configs" / "models" / "default.yaml",
+        project_root=_project_root,
+    )
+    _router = ModelRouter(_model_registry.load(), policy=RoutingPolicy(allow_fallback=True))
+except Exception as _router_err:  # pragma: no cover
+    _router = None  # type: ignore[assignment]
+    import logging
+    logging.getLogger(__name__).warning("Model router not available: %s", _router_err)
+
+# ─── M3: Local RAG integration ────────────────────────────────────────
+try:
+    from core.rag import KnowledgeRetriever, SourceRegistry
+
+    _rag_registry = SourceRegistry(
+        _project_root / "configs" / "rag_sources" / "default.yaml",
+        project_root=_project_root,
+    )
+    _rag_retriever = KnowledgeRetriever(_rag_registry.load())
+except Exception as _rag_err:  # pragma: no cover
+    _rag_retriever = None  # type: ignore[assignment]
+    import logging
+    logging.getLogger(__name__).warning("RAG retriever not available: %s", _rag_err)
+
+
+def _choose_role_for_message(message: str) -> ModelRole:
+    """Simple heuristic: route coding keywords to coder, everything else to instruct."""
+    coding_keywords = {
+        "code", "function", "class", "def", "bug", "fix", "refactor",
+        "test", "implement", "write", "error", "exception", "import",
+        "module", "package", "library", "api", "endpoint", "route",
+    }
+    lowered = message.lower()
+    if any(kw in lowered for kw in coding_keywords):
+        return ModelRole.CODER
+    return ModelRole.INSTRUCT
 
 bp = Blueprint('blog', __name__)
 
@@ -133,7 +171,7 @@ def settings():
         use_rag = request.form.get('use_rag', 'off') == 'on'
 
         # Store in session for M1 (no user preferences table yet)
-        session = {
+        _session = {
             'theme': theme,
             'model': model,
             'temperature': float(temperature),
@@ -183,12 +221,31 @@ def api_chat():
     rag_context = ''
 
     if use_rag:
+        # M3: vector-based retrieval from approved local knowledge
+        if _rag_retriever is not None:
+            try:
+                rag_results = _rag_retriever.query(user_msg, top_k=3)
+                for chunk in rag_results:
+                    sources.append({
+                        'filename': chunk.source_name,
+                        'score': chunk.score,
+                        'preview': chunk.text[:200] + '...',
+                        'source_path': chunk.source_path,
+                    })
+                    rag_context += (
+                        f"\n[From {chunk.source_name} — {chunk.source_path}]: "
+                        f"{chunk.text[:500]}\n"
+                    )
+            except Exception:
+                # If Chroma index is empty or misconfigured, continue silently
+                pass
+
+        # M1: keyword-based retrieval from user-uploaded documents
         docs = db.execute(
             'SELECT * FROM document WHERE author_id = ?',
             (g.user['id'],)
         ).fetchall()
 
-        # Simple keyword-based retrieval for M1
         keywords = set(user_msg.lower().split())
         scored_docs = []
         for doc in docs:
@@ -208,24 +265,22 @@ def api_chat():
             })
             rag_context += f"\n[From {doc['filename']}]: {doc['content'][:500]}\n"
 
-    # ─── Generate response (placeholder for M1) ─────────────────────
+    # ─── Generate response via M2 Model Router ──────────────────────
     prompt_context = f"\n\nRelevant documentation context:\n{rag_context}\n" if rag_context else ''
 
-    # This is a mock response - replace with actual LLM call
-    assistant_response = (
-        f"**CodeAssist AI Response**\n\n"
-        f"You asked about: *{user_msg}*\n\n"
-        f"Here's a helpful response:\n\n"
-        f"```python\n"
-        f"# Example code based on your query\n"
-        f"def example_function():\n"
-        f"    \"\"\"This is a placeholder response.\"\"\"\n"
-        f"    return 'Hello from CodeAssist AI!'\n"
-        f"```\n\n"
-        f"{prompt_context}\n\n"
-        f"---\n"
-        f"*To get real AI responses, integrate with an LLM API like OpenAI."
-    )
+    if _router is not None:
+        role = _choose_role_for_message(user_msg)
+        adapter = _router.route_by_role(role)
+        prompt = f"User: {user_msg}\n{prompt_context}"
+        assistant_response = adapter.generate(prompt)
+    else:
+        # Fallback when router is unavailable
+        assistant_response = (
+            f"**CodeAssist AI Response**\n\n"
+            f"You asked about: *{user_msg}*\n\n"
+            f"Model router is unavailable.\n\n"
+            f"{prompt_context}"
+        )
 
     # Save assistant message
     db.execute(

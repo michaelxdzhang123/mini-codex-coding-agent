@@ -1,3 +1,5 @@
+"""Local knowledge indexer: load, chunk, embed, and store in Chroma."""
+
 from __future__ import annotations
 
 import argparse
@@ -5,9 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+import chromadb
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 from pypdf import PdfReader
 
-from core.rag.chunker import ChunkingConfig, SourceDocument, TextChunker
+from core.rag.chunker import ChunkingConfig, SourceDocument, TextChunk, TextChunker
 from core.rag.source_registry import RAGConfig, SourceRegistry
 
 
@@ -26,15 +30,11 @@ class KnowledgeIndexer:
     1. loading configured knowledge files
     2. chunking them
     3. embedding them
-    4. storing them in local vector storage
-
-    In this interface skeleton, only the loading/chunking contract is defined clearly.
-    Codex should implement:
-    - Chroma client setup
-    - embedding model loading
-    - upsert behavior
-    - duplicate handling
+    4. storing them in local vector storage (ChromaDB)
     """
+
+    # Shared embedder instance to avoid reloading the model repeatedly.
+    _embedder: DefaultEmbeddingFunction | None = None
 
     def __init__(self, config: RAGConfig) -> None:
         self.config = config
@@ -44,6 +44,18 @@ class KnowledgeIndexer:
                 chunk_overlap=config.settings.chunk_overlap,
             )
         )
+        self._client = chromadb.PersistentClient(
+            path=str(config.settings.persist_directory)
+        )
+        self._collection = self._client.get_or_create_collection(
+            name=config.settings.collection_name
+        )
+
+    @classmethod
+    def _get_embedder(cls) -> DefaultEmbeddingFunction:
+        if cls._embedder is None:
+            cls._embedder = DefaultEmbeddingFunction()
+        return cls._embedder
 
     def run(self) -> IndexStats:
         stats = IndexStats(source_count=len(self.config.sources))
@@ -54,9 +66,7 @@ class KnowledgeIndexer:
 
                 document = self._load_document(source_name=source.name, path=file_path)
                 chunks = self.chunker.chunk_document(document)
-
-                # TODO: Codex should replace this with:
-                # self._upsert_chunks(chunks)
+                self._upsert_chunks(chunks)
                 stats.chunk_count += len(chunks)
 
         return stats
@@ -104,17 +114,31 @@ class KnowledgeIndexer:
 
         return "\n".join(texts).strip()
 
-    # TODO for Codex:
-    # def _upsert_chunks(self, chunks: list[TextChunk]) -> None:
-    #     """
-    #     Embed and upsert chunks into Chroma.
-    #     Responsibilities:
-    #     - initialize persistent client
-    #     - get or create collection
-    #     - compute embeddings
-    #     - upsert documents, ids, metadatas
-    #     """
-    #     raise NotImplementedError
+    def _upsert_chunks(self, chunks: list[TextChunk]) -> None:
+        """Embed and upsert chunks into Chroma."""
+        if not chunks:
+            return
+
+        embedder = self._get_embedder()
+        ids = [c.chunk_id for c in chunks]
+        texts = [c.text for c in chunks]
+        metadatas = [
+            {
+                "source_name": c.source_name,
+                "source_path": c.source_path,
+                "chunk_index": c.chunk_index,
+                "file_type": c.file_type,
+            }
+            for c in chunks
+        ]
+        embeddings = embedder(texts)
+
+        self._collection.upsert(
+            ids=ids,
+            documents=texts,
+            metadatas=metadatas,
+            embeddings=embeddings,
+        )
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
