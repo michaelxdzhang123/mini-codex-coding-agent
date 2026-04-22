@@ -1,0 +1,395 @@
+{% extends 'base.html' %}
+
+{% block title %}Chat - CodeAssist AI{% endblock %}
+
+{% block content %}
+<div class="app-layout chat-layout">
+    <!-- Chat Sidebar -->
+    <aside class="chat-sidebar" id="chatSidebar">
+        <div class="chat-sidebar-header">
+            <a href="{{ url_for('blog.menu') }}" class="chat-back">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+            </a>
+            <a href="{{ url_for('blog.chat') }}" class="chat-new-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                New
+            </a>
+        </div>
+
+        <div class="chat-sidebar-title">Conversations</div>
+        <div class="chat-conv-list">
+            {% for conv in conversations %}
+            <a href="{{ url_for('blog.chat', conv=conv.id) }}"
+               class="chat-conv-item {% if current_conv and current_conv.id == conv.id %}active{% endif %}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span class="chat-conv-title">{{ conv.title }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </aside>
+
+    <!-- Chat Main Area -->
+    <div class="chat-main">
+        <!-- Chat Header -->
+        <div class="chat-header">
+            <div class="chat-header-left">
+                <button class="chat-sidebar-toggle" id="chatSidebarToggle">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                </button>
+                <div class="chat-header-title">
+                    {% if current_conv %}{{ current_conv.title }}{% else %}New Chat{% endif %}
+                </div>
+            </div>
+            <div class="chat-header-right">
+                <label class="rag-toggle">
+                    <input type="checkbox" id="ragToggle">
+                    <span class="rag-toggle-slider"></span>
+                    <span class="rag-toggle-label">RAG</span>
+                </label>
+                <button class="chat-upload-btn" id="uploadBtn" title="Upload document">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                    </svg>
+                </button>
+                <input type="file" id="fileInput" style="display:none" accept=".txt,.md,.py,.js,.html,.css,.json,.yaml,.yml">
+            </div>
+        </div>
+
+        <!-- Messages Area -->
+        <div class="chat-messages" id="chatMessages">
+            {% if not messages %}
+            <!-- Welcome state -->
+            <div class="chat-welcome">
+                <div class="chat-welcome-icon">&lt;/&gt;</div>
+                <h2 class="chat-welcome-title">CodeAssist AI</h2>
+                <p class="chat-welcome-desc">Ask me anything about coding. I can help with:</p>
+                <div class="chat-welcome-suggestions">
+                    <button class="suggestion-chip" onclick="setInput('How do I build a REST API with Flask?')">
+                        How do I build a REST API with Flask?
+                    </button>
+                    <button class="suggestion-chip" onclick="setInput('Explain Python decorators with examples')">
+                        Explain Python decorators with examples
+                    </button>
+                    <button class="suggestion-chip" onclick="setInput('Debug this code: def foo(bar): return bar + 1')">
+                        Debug this code: def foo(bar): return bar + 1
+                    </button>
+                    <button class="suggestion-chip" onclick="setInput('What are the SOLID principles?')">
+                        What are the SOLID principles?
+                    </button>
+                </div>
+            </div>
+            {% else %}
+                {% for msg in messages %}
+                <div class="message message-{{ msg.role }}">
+                    <div class="message-avatar">
+                        {% if msg.role == 'user' %}
+                        <div class="avatar-user">{{ g.user.username[0]|upper }}</div>
+                        {% else %}
+                        <div class="avatar-ai">AI</div>
+                        {% endif %}
+                    </div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-author">{% if msg.role == 'user' %}{{ g.user.username }}{% else %}CodeAssist{% endif %}</span>
+                            <span class="message-time">{{ msg.created }}</span>
+                        </div>
+                        <div class="message-body markdown-body">{{ msg.content|safe }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- Typing Indicator -->
+        <div class="typing-indicator" id="typingIndicator" style="display:none">
+            <div class="typing-avatar">
+                <div class="avatar-ai">AI</div>
+            </div>
+            <div class="typing-dots">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="chat-input-area">
+            <div class="chat-input-wrapper">
+                <textarea
+                    class="chat-input"
+                    id="chatInput"
+                    placeholder="Ask anything about code..."
+                    rows="1"
+                ></textarea>
+                <button class="chat-send-btn" id="sendBtn" title="Send message">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="chat-input-hint">
+                <span>Enter to send</span>
+                <span>Shift+Enter for new line</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- RAG Context Panel -->
+    <aside class="rag-panel" id="ragPanel">
+        <div class="rag-panel-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+            </svg>
+            RAG Context
+        </div>
+        <div class="rag-panel-content" id="ragPanelContent">
+            <div class="rag-empty">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <p>Upload documents to enable RAG</p>
+                <p class="rag-empty-hint">Supported: .txt, .md, .py, .js, .html, .css, .json, .yaml</p>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<script>
+// Conversation ID (if in existing conv)
+const convId = {{ current_conv.id if current_conv else 'null' }};
+
+// Elements
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+const chatMessages = document.getElementById('chatMessages');
+const typingIndicator = document.getElementById('typingIndicator');
+const ragToggle = document.getElementById('ragToggle');
+const ragPanel = document.getElementById('ragPanel');
+const ragPanelContent = document.getElementById('ragPanelContent');
+const uploadBtn = document.getElementById('uploadBtn');
+const fileInput = document.getElementById('fileInput');
+const chatSidebar = document.getElementById('chatSidebar');
+const chatSidebarToggle = document.getElementById('chatSidebarToggle');
+
+// Auto-resize textarea
+chatInput.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+});
+
+// Send on Enter
+chatInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+sendBtn.addEventListener('click', sendMessage);
+
+// Toggle RAG panel
+ragToggle.addEventListener('change', function() {
+    ragPanel.classList.toggle('open', this.checked);
+});
+
+// Toggle chat sidebar
+chatSidebarToggle.addEventListener('click', function() {
+    chatSidebar.classList.toggle('collapsed');
+});
+
+// Upload
+uploadBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', handleUpload);
+
+function setInput(text) {
+    chatInput.value = text;
+    chatInput.focus();
+}
+
+function handleUpload() {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    fetch('{{ url_for("blog.api_upload") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            addRagDoc(data.filename, data.chunks);
+            showToast(`Uploaded "${data.filename}" (${data.chunks} chunks)`);
+        } else {
+            showToast('Upload failed: ' + data.error, 'error');
+        }
+    })
+    .catch(err => showToast('Upload error: ' + err, 'error'));
+
+    fileInput.value = '';
+}
+
+function addRagDoc(filename, chunks) {
+    const emptyEl = ragPanelContent.querySelector('.rag-empty');
+    if (emptyEl) emptyEl.remove();
+
+    const docEl = document.createElement('div');
+    docEl.className = 'rag-doc-item';
+    docEl.innerHTML = `
+        <div class="rag-doc-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+            </svg>
+        </div>
+        <div class="rag-doc-info">
+            <div class="rag-doc-name">${escapeHtml(filename)}</div>
+            <div class="rag-doc-meta">${chunks} chunks indexed</div>
+        </div>
+    `;
+    ragPanelContent.appendChild(docEl);
+}
+
+function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+
+    // Add user message
+    appendMessage('user', text, '{{ g.user.username }}');
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+
+    // Remove welcome if present
+    const welcome = chatMessages.querySelector('.chat-welcome');
+    if (welcome) welcome.remove();
+
+    // Show typing
+    typingIndicator.style.display = 'flex';
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    // Send to API
+    fetch('{{ url_for("blog.api_chat") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            message: text,
+            conversation_id: convId,
+            use_rag: ragToggle.checked
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        typingIndicator.style.display = 'none';
+        if (data.response) {
+            appendMessage('assistant', data.response, 'CodeAssist');
+        }
+        if (data.sources && data.sources.length > 0) {
+            updateRagSources(data.sources);
+        }
+    })
+    .catch(err => {
+        typingIndicator.style.display = 'none';
+        appendMessage('assistant', '**Error:** ' + err, 'CodeAssist');
+    });
+}
+
+function appendMessage(role, content, author) {
+    const msgEl = document.createElement('div');
+    msgEl.className = 'message message-' + role;
+
+    const avatarClass = role === 'user' ? 'avatar-user' : 'avatar-ai';
+    const avatarText = role === 'user' ? author[0].toUpperCase() : 'AI';
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    msgEl.innerHTML = `
+        <div class="message-avatar">
+            <div class="${avatarClass}">${avatarText}</div>
+        </div>
+        <div class="message-content">
+            <div class="message-header">
+                <span class="message-author">${escapeHtml(author)}</span>
+                <span class="message-time">${time}</span>
+            </div>
+            <div class="message-body markdown-body">${formatMarkdown(content)}</div>
+        </div>
+    `;
+
+    chatMessages.appendChild(msgEl);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    // Highlight code blocks
+    msgEl.querySelectorAll('pre code').forEach(block => {
+        hljs.highlightElement(block);
+    });
+}
+
+function updateRagSources(sources) {
+    const emptyEl = ragPanelContent.querySelector('.rag-empty');
+    if (emptyEl) emptyEl.remove();
+
+    const sourcesEl = document.createElement('div');
+    sourcesEl.className = 'rag-sources';
+    sourcesEl.innerHTML = '<div class="rag-sources-title">Retrieved Sources</div>';
+
+    sources.forEach(src => {
+        const srcEl = document.createElement('div');
+        srcEl.className = 'rag-source-item';
+        srcEl.innerHTML = `
+            <div class="rag-source-header">
+                <span class="rag-source-file">${escapeHtml(src.filename)}</span>
+                <span class="rag-source-score">${(src.score * 100).toFixed(0)}%</span>
+            </div>
+            <div class="rag-source-preview">${escapeHtml(src.preview)}</div>
+        `;
+        sourcesEl.appendChild(srcEl);
+    });
+
+    ragPanelContent.appendChild(sourcesEl);
+}
+
+function formatMarkdown(text) {
+    // Simple markdown formatting
+    let html = escapeHtml(text);
+
+    // Code blocks
+    html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+        const language = lang || 'text';
+        return `<pre><code class="language-${language}">${code.trim()}</code></pre>`;
+    });
+
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    // Bold
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // Italic
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+    // Line breaks
+    html = html.replace(/\n/g, '<br>');
+
+    return html;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showToast(message, type = 'success') {
+    // Simple toast - could be expanded
+    console.log(`[${type}] ${message}`);
+}
+</script>
+{% endblock %}

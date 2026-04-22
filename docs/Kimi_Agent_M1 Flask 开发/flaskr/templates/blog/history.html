@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+
+{% block title %}History - CodeAssist AI{% endblock %}
+
+{% block content %}
+<div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="{{ url_for('blog.menu') }}" class="sidebar-brand">
+                <span class="brand-icon">&lt;/&gt;</span>
+                <span class="brand-text">CodeAssist</span>
+            </a>
+            <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/>
+                </svg>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('blog.chat') }}" class="sidebar-new-chat">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                New Chat
+            </a>
+
+            <div class="sidebar-section-title">Recent</div>
+            <div class="sidebar-conversations">
+                {% for conv in conversations[:5] %}
+                <a href="{{ url_for('blog.chat', conv=conv.id) }}" class="sidebar-conv-item">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <span class="conv-title">{{ conv.title }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="{{ url_for('blog.history') }}" class="sidebar-footer-link active">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                </svg>
+                History
+            </a>
+            <a href="{{ url_for('blog.settings') }}" class="sidebar-footer-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                Settings
+            </a>
+            <div class="sidebar-user">
+                <div class="user-avatar">{{ g.user.username[0]|upper }}</div>
+                <span class="user-name">{{ g.user.username }}</span>
+                <a href="{{ url_for('auth.logout') }}" class="user-logout" title="Logout">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="history-container">
+            <div class="history-header">
+                <h1 class="history-title">Conversation History</h1>
+                <p class="history-subtitle">{{ conversations|length }} conversation(s) total</p>
+            </div>
+
+            {% if conversations %}
+            <div class="history-list">
+                {% for conv in conversations %}
+                <div class="history-item" data-id="{{ conv.id }}">
+                    <div class="history-item-left">
+                        <div class="history-item-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                        </div>
+                        <div class="history-item-info">
+                            <a href="{{ url_for('blog.chat', conv=conv.id) }}" class="history-item-title">{{ conv.title }}</a>
+                            <div class="history-item-meta">
+                                <span>{{ conv.msg_count }} messages</span>
+                                <span class="meta-sep">&#xb7;</span>
+                                <span>Created: {{ conv.created }}</span>
+                                {% if conv.last_active %}
+                                <span class="meta-sep">&#xb7;</span>
+                                <span>Last active: {{ conv.last_active }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="history-item-actions">
+                        <a href="{{ url_for('blog.chat', conv=conv.id) }}" class="history-btn history-btn-primary">Open</a>
+                        <button class="history-btn history-btn-danger" onclick="deleteConv({{ conv.id }})">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="history-empty">
+                <div class="history-empty-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                </div>
+                <h3>No conversations yet</h3>
+                <p>Start a new chat to see your history here.</p>
+                <a href="{{ url_for('blog.chat') }}" class="history-empty-btn">Start New Chat</a>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+</div>
+
+<script>
+// Sidebar toggle
+const sidebar = document.getElementById('sidebar');
+const toggle = document.getElementById('sidebarToggle');
+if (toggle && sidebar) {
+    toggle.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+    });
+}
+
+function deleteConv(id) {
+    if (!confirm('Delete this conversation?')) return;
+
+    fetch(`/api/conversations/${id}`, {
+        method: 'DELETE'
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const item = document.querySelector(`[data-id="${id}"]`);
+            if (item) {
+                item.style.transition = 'all 0.3s ease';
+                item.style.opacity = '0';
+                item.style.transform = 'translateX(-20px)';
+                setTimeout(() => item.remove(), 300);
+            }
+        }
+    })
+    .catch(err => console.error('Delete failed:', err));
+}
+</script>
+{% endblock %}

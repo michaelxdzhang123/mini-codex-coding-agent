@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Register - CodeAssist AI{% endblock %}
+
+{% block content %}
+<div class="auth-screen">
+    <div class="auth-bg">
+        <div class="auth-particles" id="authParticles"></div>
+    </div>
+
+    <div class="auth-card">
+        <div class="auth-logo">
+            <span class="auth-logo-icon">&lt;/&gt;</span>
+            <span class="auth-logo-text">CodeAssist AI</span>
+        </div>
+
+        <h2 class="auth-title">Create account</h2>
+        <p class="auth-subtitle">Get started with CodeAssist AI</p>
+
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="auth-flash">
+            {% for message in messages %}
+            <div class="flash-error">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <form method="post" class="auth-form">
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" name="username" id="username" class="form-input" placeholder="Choose a username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" name="password" id="password" class="form-input" placeholder="Choose a password" required>
+                <p class="form-hint">At least 6 characters recommended</p>
+            </div>
+            <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+        </form>
+
+        <div class="auth-footer">
+            Already have an account? <a href="{{ url_for('auth.login') }}">Sign in</a>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const container = document.getElementById('authParticles');
+    const colors = ['#58A6FF', '#3FB950', '#F0883E', '#A371F7'];
+    for (let i = 0; i < 15; i++) {
+        const p = document.createElement('div');
+        p.className = 'auth-particle';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.top = Math.random() * 100 + '%';
+        p.style.width = (2 + Math.random() * 4) + 'px';
+        p.style.height = p.style.width;
+        p.style.background = colors[Math.floor(Math.random() * colors.length)];
+        p.style.opacity = 0.15 + Math.random() * 0.25;
+        p.style.animationDelay = Math.random() * 6 + 's';
+        p.style.animationDuration = (5 + Math.random() * 7) + 's';
+        container.appendChild(p);
+    }
+})();
+</script>
+{% endblock %}

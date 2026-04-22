@@ -1,0 +1,322 @@
+{% extends 'base.html' %}
+
+{% block title %}Settings - CodeAssist AI{% endblock %}
+
+{% block content %}
+<div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="{{ url_for('blog.menu') }}" class="sidebar-brand">
+                <span class="brand-icon">&lt;/&gt;</span>
+                <span class="brand-text">CodeAssist</span>
+            </a>
+            <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/>
+                </svg>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('blog.chat') }}" class="sidebar-new-chat">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                New Chat
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="{{ url_for('blog.history') }}" class="sidebar-footer-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                </svg>
+                History
+            </a>
+            <a href="{{ url_for('blog.settings') }}" class="sidebar-footer-link active">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                Settings
+            </a>
+            <div class="sidebar-user">
+                <div class="user-avatar">{{ g.user.username[0]|upper }}</div>
+                <span class="user-name">{{ g.user.username }}</span>
+                <a href="{{ url_for('auth.logout') }}" class="user-logout" title="Logout">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="settings-container">
+            <div class="settings-header">
+                <h1 class="settings-title">Settings</h1>
+                <p class="settings-subtitle">Configure your CodeAssist AI experience</p>
+            </div>
+
+            <!-- Settings Tabs -->
+            <div class="settings-tabs">
+                <button class="settings-tab active" data-tab="general">General</button>
+                <button class="settings-tab" data-tab="model">AI Model</button>
+                <button class="settings-tab" data-tab="rag">RAG Config</button>
+            </div>
+
+            <form method="post" class="settings-form">
+                <!-- General Tab -->
+                <div class="settings-panel active" data-panel="general">
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">Appearance</h3>
+
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <label class="setting-label">Theme</label>
+                                <p class="setting-desc">Choose your preferred color theme</p>
+                            </div>
+                            <select name="theme" class="setting-select">
+                                <option value="dark" selected>Dark (GitHub)</option>
+                                <option value="light">Light</option>
+                                <option value="high-contrast">High Contrast</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <label class="setting-label">Font Size</label>
+                                <p class="setting-desc">Editor and chat font size</p>
+                            </div>
+                            <select name="font_size" class="setting-select">
+                                <option value="12">12px</option>
+                                <option value="14" selected>14px</option>
+                                <option value="16">16px</option>
+                                <option value="18">18px</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">Notifications</h3>
+
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <label class="setting-label">Sound Effects</label>
+                                <p class="setting-desc">Play sounds on message receive</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="sound" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <label class="setting-label">Auto-save Chats</label>
+                                <p class="setting-desc">Automatically save conversations</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="autosave" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Model Tab -->
+                <div class="settings-panel" data-panel="model">
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">Model Selection</h3>
+
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <label class="setting-label">AI Model</label>
+                                <p class="setting-desc">Choose the LLM to power responses</p>
+                            </div>
+                            <select name="model" class="setting-select">
+                                <option value="gpt-4" selected>GPT-4 (Recommended)</option>
+                                <option value="gpt-3.5">GPT-3.5 Turbo</option>
+                                <option value="claude">Claude 3</option>
+                                <option value="local">Local Model</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <label class="setting-label">Temperature</label>
+                                <p class="setting-desc">Controls creativity (0 = focused, 1 = creative)</p>
+                            </div>
+                            <div class="setting-range-group">
+                                <input type="range" name="temperature" min="0" max="1" step="0.1" value="0.7" class="setting-range" id="tempRange">
+                                <span class="setting-range-value" id="tempValue">0.7</span>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <label class="setting-label">Max Tokens</label>
+                                <p class="setting-desc">Maximum response length</p>
+                            </div>
+                            <select name="max_tokens" class="setting-select">
+                                <option value="1024">1,024</option>
+                                <option value="2048" selected>2,048</option>
+                                <option value="4096">4,096</option>
+                                <option value="8192">8,192</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">API Configuration</h3>
+
+                        <div class="setting-row setting-row-full">
+                            <label class="setting-label">OpenAI API Key</label>
+                            <input type="password" class="setting-input" placeholder="sk-..." value="">
+                            <p class="setting-hint">Your API key is stored locally and never sent to our servers.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RAG Config Tab -->
+                <div class="settings-panel" data-panel="rag">
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">Retrieval-Augmented Generation</h3>
+
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <label class="setting-label">Enable RAG</label>
+                                <p class="setting-desc">Use document retrieval to enhance responses</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="use_rag">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <label class="setting-label">Chunk Size</label>
+                                <p class="setting-desc">Characters per document chunk</p>
+                            </div>
+                            <select name="chunk_size" class="setting-select">
+                                <option value="256">256</option>
+                                <option value="512" selected>512</option>
+                                <option value="1024">1,024</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <label class="setting-label">Top-K Results</label>
+                                <p class="setting-desc">Number of chunks to retrieve</p>
+                            </div>
+                            <select name="top_k" class="setting-select">
+                                <option value="3">3</option>
+                                <option value="5" selected>5</option>
+                                <option value="10">10</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <label class="setting-label">Similarity Threshold</label>
+                                <p class="setting-desc">Minimum relevance score (0-1)</p>
+                            </div>
+                            <div class="setting-range-group">
+                                <input type="range" name="threshold" min="0" max="1" step="0.05" value="0.3" class="setting-range" id="threshRange">
+                                <span class="setting-range-value" id="threshValue">0.30</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">Indexed Documents</h3>
+                        <div class="rag-docs-list" id="ragDocsList">
+                            <div class="rag-docs-placeholder">No documents indexed yet. Upload files in the chat interface.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save Buttons -->
+                <div class="settings-actions">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <a href="{{ url_for('blog.menu') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </main>
+</div>
+
+<script>
+// Sidebar toggle
+const sidebar = document.getElementById('sidebar');
+const toggle = document.getElementById('sidebarToggle');
+if (toggle && sidebar) {
+    toggle.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+    });
+}
+
+// Tab switching
+document.querySelectorAll('.settings-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        const panelName = tab.dataset.tab;
+        document.querySelectorAll('.settings-panel').forEach(p => {
+            p.classList.toggle('active', p.dataset.panel === panelName);
+        });
+    });
+});
+
+// Range sliders
+const tempRange = document.getElementById('tempRange');
+const tempValue = document.getElementById('tempValue');
+if (tempRange) {
+    tempRange.addEventListener('input', () => {
+        tempValue.textContent = tempRange.value;
+    });
+}
+
+const threshRange = document.getElementById('threshRange');
+const threshValue = document.getElementById('threshValue');
+if (threshRange) {
+    threshRange.addEventListener('input', () => {
+        threshValue.textContent = parseFloat(threshRange.value).toFixed(2);
+    });
+}
+
+// Load indexed docs
+fetch('{{ url_for("blog.api_search") }}?query=')
+.then(r => r.json())
+.then(data => {
+    if (data.results && data.results.length > 0) {
+        const list = document.getElementById('ragDocsList');
+        list.innerHTML = '';
+        data.results.forEach(doc => {
+            const el = document.createElement('div');
+            el.className = 'rag-doc-row';
+            el.innerHTML = `
+                <div class="rag-doc-row-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                </div>
+                <div class="rag-doc-row-info">
+                    <div class="rag-doc-row-name">${doc.filename}</div>
+                    <div class="rag-doc-row-meta">${doc.chunks} chunks</div>
+                </div>
+            `;
+            list.appendChild(el);
+        });
+    }
+})
+.catch(() => {});
+</script>
+{% endblock %}
