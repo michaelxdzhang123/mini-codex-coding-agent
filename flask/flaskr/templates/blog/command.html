@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ log.command }} - Command{% endblock %}
+
+{% block content %}
+<div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="{{ url_for('blog.menu') }}" class="sidebar-brand">
+                <span class="brand-icon">&lt;/&gt;</span>
+                <span class="brand-text">CodeAssist</span>
+            </a>
+            <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/>
+                </svg>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('blog.chat') }}" class="sidebar-new-chat">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                New Chat
+            </a>
+
+            <div class="sidebar-section-title">Menu</div>
+            <a href="{{ url_for('blog.repos') }}" class="sidebar-conv-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span class="conv-title">Repos</span>
+            </a>
+            <a href="{{ url_for('blog.plans') }}" class="sidebar-conv-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 11l6-6M7 17l4-4-4-4M17 19l4-4-4-4"/>
+                </svg>
+                <span class="conv-title">Plans</span>
+            </a>
+            <a href="{{ url_for('blog.patches') }}" class="sidebar-conv-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <span class="conv-title">Patches</span>
+            </a>
+            <a href="{{ url_for('blog.commands') }}" class="sidebar-conv-item active">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+                </svg>
+                <span class="conv-title">Commands</span>
+            </a>
+            <a href="{{ url_for('blog.history') }}" class="sidebar-conv-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                </svg>
+                <span class="conv-title">History</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="{{ url_for('blog.settings') }}" class="sidebar-footer-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                Settings
+            </a>
+            <div class="sidebar-user">
+                <div class="user-avatar">{{ g.user.username[0]|upper }}</div>
+                <span class="user-name">{{ g.user.username }}</span>
+                <a href="{{ url_for('auth.logout') }}" class="user-logout" title="Logout">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="plan-container" style="padding: 2rem; max-width: 900px; margin: 0 auto;">
+            <div style="margin-bottom: 2rem;">
+                <a href="{{ url_for('blog.commands') }}" style="color: var(--text-secondary); text-decoration: none; font-size: 0.875rem;">
+                    &larr; Back to Commands
+                </a>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+                <div>
+                    <h1 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-primary);">
+                        <code style="background: var(--surface); padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 1.25rem;">{{ log.command }}</code>
+                    </h1>
+                    <p style="color: var(--text-secondary); font-size: 0.875rem;">
+                        Status: <span class="status-badge status-{{ log.status }}">{{ log.status }}</span>
+                        {% if log.exit_code is not none %}
+                        &middot; Exit: {{ log.exit_code }}
+                        {% endif %}
+                        {% if log.duration_ms %}
+                        &middot; Duration: {{ log.duration_ms }}ms
+                        {% endif %}
+                        {% if log.approved_by %}
+                        &middot; Approved by: {{ log.approved_by }}
+                        {% endif %}
+                    </p>
+                </div>
+
+                {% if log.status == 'pending' %}
+                <div style="display: flex; gap: 0.75rem;">
+                    <button id="cancelBtn" class="history-btn history-btn-danger" onclick="cancelCommand()">
+                        Cancel
+                    </button>
+                    <button id="approveBtn" class="history-btn history-btn-primary" onclick="approveCommand()">
+                        Approve & Run
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="plan-section" style="margin-bottom: 2rem; padding: 1.25rem; background: var(--surface); border-radius: 12px; border: 1px solid var(--border);">
+                <h2 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Details</h2>
+                <div style="color: var(--text-secondary); font-size: 0.875rem; line-height: 1.8;">
+                    <div><strong>Working directory:</strong> {{ log.working_directory or '—' }}</div>
+                    <div><strong>Created:</strong> {{ log.created }}</div>
+                    {% if log.started_at %}
+                    <div><strong>Started:</strong> {{ log.started_at }}</div>
+                    {% endif %}
+                    {% if log.completed_at %}
+                    <div><strong>Completed:</strong> {{ log.completed_at }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if log.stdout %}
+            <div class="plan-section" style="margin-bottom: 2rem;">
+                <h2 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Standard Output</h2>
+                <pre style="background: #0d1117; border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; line-height: 1.6; color: #c9d1d9;"><code style="background: transparent; padding: 0;">{{ log.stdout }}</code></pre>
+            </div>
+            {% endif %}
+
+            {% if log.stderr %}
+            <div class="plan-section" style="margin-bottom: 2rem;">
+                <h2 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Standard Error</h2>
+                <pre style="background: #0d1117; border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; line-height: 1.6; color: #f85149;"><code style="background: transparent; padding: 0;">{{ log.stderr }}</code></pre>
+            </div>
+            {% endif %}
+
+            <div id="result" style="display: none; margin-top: 1rem; padding: 1rem; border-radius: 8px; font-size: 0.875rem;"></div>
+        </div>
+    </main>
+</div>
+
+<style>
+.status-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+.status-pending { background: rgba(240, 136, 62, 0.15); color: #F0883E; }
+.status-success { background: rgba(63, 185, 80, 0.15); color: #3FB950; }
+.status-failure { background: rgba(248, 81, 73, 0.15); color: #F85149; }
+.status-denied { background: rgba(248, 81, 73, 0.15); color: #F85149; }
+.status-rejected { background: rgba(160, 160, 160, 0.15); color: #a0a0a0; }
+.status-running { background: rgba(88, 166, 255, 0.15); color: #58A6FF; }
+.status-timeout { background: rgba(240, 136, 62, 0.15); color: #F0883E; }
+</style>
+
+<script>
+const logId = {{ log.id }};
+const resultEl = document.getElementById('result');
+
+function showResult(message, type) {
+    resultEl.style.display = 'block';
+    resultEl.textContent = message;
+    resultEl.style.background = type === 'success' ? 'rgba(63, 185, 80, 0.1)' : 'rgba(248, 81, 73, 0.1)';
+    resultEl.style.color = type === 'success' ? '#3FB950' : '#F85149';
+    resultEl.style.border = `1px solid ${type === 'success' ? 'rgba(63, 185, 80, 0.3)' : 'rgba(248, 81, 73, 0.3)'}`;
+}
+
+async function approveCommand() {
+    if (!confirm('Approve and run this command?')) return;
+    document.getElementById('approveBtn').disabled = true;
+    document.getElementById('cancelBtn').disabled = true;
+    try {
+        const res = await fetch(`/api/command/${logId}/approve`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showResult(`Executed: ${data.status} (exit=${data.exit_code})`, 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showResult(data.error || 'Approval failed', 'error');
+        }
+    } catch (e) {
+        showResult('Network error', 'error');
+    }
+}
+
+async function cancelCommand() {
+    if (!confirm('Cancel this command? It will not be executed.')) return;
+    document.getElementById('approveBtn').disabled = true;
+    document.getElementById('cancelBtn').disabled = true;
+    try {
+        const res = await fetch(`/api/command/${logId}/cancel`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showResult('Command cancelled.', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showResult(data.error || 'Cancel failed', 'error');
+        }
+    } catch (e) {
+        showResult('Network error', 'error');
+    }
+}
+
+const sidebar = document.getElementById('sidebar');
+const toggle = document.getElementById('sidebarToggle');
+if (toggle && sidebar) {
+    toggle.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+    });
+}
+</script>
+{% endblock %}

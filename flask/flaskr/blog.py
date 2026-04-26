@@ -1,6 +1,8 @@
+import json
 import uuid
 from pathlib import Path
 
+from werkzeug.exceptions import abort
 from werkzeug.utils import secure_filename
 
 from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, url_for
@@ -35,6 +37,44 @@ except Exception as _rag_err:  # pragma: no cover
     _rag_retriever = None  # type: ignore[assignment]
     import logging
     logging.getLogger(__name__).warning("RAG retriever not available: %s", _rag_err)
+
+# ─── M4: Planner integration ──────────────────────────────────────────
+try:
+    from core.planner import ContextBuilder, Planner
+
+    _context_builder = ContextBuilder(retriever=_rag_retriever)
+    _planner = Planner(_router, _context_builder) if _router is not None else None
+except Exception as _plan_err:  # pragma: no cover
+    _planner = None  # type: ignore[assignment]
+    import logging
+    logging.getLogger(__name__).warning("Planner not available: %s", _plan_err)
+
+# ─── M5: Patcher integration ──────────────────────────────────────────
+try:
+    from core.patcher import DiffRenderer, PatchApplier, PatchProposal, PathGuard
+
+    _patch_guard = PathGuard(allowed_roots=[_project_root / "flask"])
+    _patch_applier = PatchApplier(_patch_guard)
+except Exception as _patch_err:  # pragma: no cover
+    _patch_applier = None  # type: ignore[assignment]
+    import logging
+    logging.getLogger(__name__).warning("Patcher not available: %s", _patch_err)
+
+# ─── M6: Safe Command Runner integration ──────────────────────────────
+try:
+    from core.commands import CommandGuard, SafeCommandRunner, ToolWhitelistLoader
+
+    _whitelist_loader = ToolWhitelistLoader(
+        _project_root / "configs" / "tool_whitelist.yaml",
+        project_root=_project_root,
+    )
+    _whitelist_config = _whitelist_loader.load()
+    _command_guard = CommandGuard(_whitelist_config)
+    _command_runner = SafeCommandRunner(_command_guard)
+except Exception as _cmd_err:  # pragma: no cover
+    _command_runner = None  # type: ignore[assignment]
+    import logging
+    logging.getLogger(__name__).warning("Command runner not available: %s", _cmd_err)
 
 
 def _choose_role_for_message(message: str) -> ModelRole:
@@ -434,3 +474,769 @@ def api_delete_conversation(conv_id):
     )
     db.commit()
     return jsonify({'success': True})
+
+
+# ─── Plan Routes (M4) ─────────────────────────────────────────────────
+
+
+@bp.route('/api/plan', methods=['POST'])
+@login_required
+def api_create_plan():
+    """API: Generate a structured plan from a conversation."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid request'}), 400
+
+    conv_id = data.get('conversation_id')
+    task_description = data.get('task', '')
+
+    if not task_description and not conv_id:
+        return jsonify({'error': 'conversation_id or task required'}), 400
+
+    db = get_db()
+
+    # If conversation_id provided, build task from conversation title/messages
+    if conv_id and not task_description:
+        conv = db.execute(
+            'SELECT * FROM conversation WHERE id = ? AND author_id = ?',
+            (conv_id, g.user['id'])
+        ).fetchone()
+        if not conv:
+            return jsonify({'error': 'Conversation not found'}), 404
+        task_description = conv['title']
+
+    if _planner is None:
+        return jsonify({'error': 'Planner not available'}), 503
+
+    plan = _planner.generate_plan(task_description)
+
+    # Store plan in DB
+    cursor = db.execute(
+        'INSERT INTO plan (conversation_id, author_id, title, summary,'
+        ' assumptions, steps, files_to_inspect, knowledge_to_consult,'
+        ' commands_to_run, risks, raw_response)'
+        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (
+            conv_id,
+            g.user['id'],
+            task_description[:100],
+            plan.summary,
+            json.dumps(plan.assumptions),
+            json.dumps(plan.steps),
+            json.dumps(plan.files_to_inspect),
+            json.dumps(plan.knowledge_to_consult),
+            json.dumps(plan.commands_to_run),
+            json.dumps(plan.risks),
+            plan.to_json(),
+        )
+    )
+    db.commit()
+    plan_id = cursor.lastrowid
+
+    return jsonify({
+        'plan_id': plan_id,
+        'plan': {
+            'summary': plan.summary,
+            'assumptions': plan.assumptions,
+            'steps': plan.steps,
+            'files_to_inspect': plan.files_to_inspect,
+            'knowledge_to_consult': plan.knowledge_to_consult,
+            'commands_to_run': plan.commands_to_run,
+            'risks': plan.risks,
+        }
+    })
+
+
+@bp.route('/plans')
+@login_required
+def plans():
+    """M4: List all generated plans."""
+    db = get_db()
+    rows = db.execute(
+        'SELECT id, title, summary, created FROM plan'
+        ' WHERE author_id = ? ORDER BY created DESC',
+        (g.user['id'],)
+    ).fetchall()
+    return render_template('blog/plans.html', plans=rows)
+
+
+@bp.route('/plan/<int:plan_id>')
+@login_required
+def plan_detail(plan_id):
+    """M4: Display a single structured plan."""
+    db = get_db()
+    row = db.execute(
+        'SELECT * FROM plan WHERE id = ? AND author_id = ?',
+        (plan_id, g.user['id'])
+    ).fetchone()
+
+    if row is None:
+        abort(404)
+
+    plan = {
+        'id': row['id'],
+        'title': row['title'],
+        'summary': row['summary'],
+        'assumptions': json.loads(row['assumptions'] or '[]'),
+        'steps': json.loads(row['steps'] or '[]'),
+        'files_to_inspect': json.loads(row['files_to_inspect'] or '[]'),
+        'knowledge_to_consult': json.loads(row['knowledge_to_consult'] or '[]'),
+        'commands_to_run': json.loads(row['commands_to_run'] or '[]'),
+        'risks': json.loads(row['risks'] or '[]'),
+        'created': row['created'],
+    }
+
+    return render_template('blog/plan.html', plan=plan)
+
+
+@bp.route('/api/plans')
+@login_required
+def api_plans():
+    """API: List plans."""
+    db = get_db()
+    rows = db.execute(
+        'SELECT id, title, summary, created FROM plan'
+        ' WHERE author_id = ? ORDER BY created DESC',
+        (g.user['id'],)
+    ).fetchall()
+
+    return jsonify({
+        'plans': [
+            {
+                'id': r['id'],
+                'title': r['title'],
+                'summary': r['summary'],
+                'created': r['created'],
+            }
+            for r in rows
+        ]
+    })
+
+
+# ─── Patch Routes (M5) ────────────────────────────────────────────────
+
+
+@bp.route('/api/patch/propose', methods=['POST'])
+@login_required
+def api_propose_patch():
+    """API: Propose a patch from a plan or conversation."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid request'}), 400
+
+    plan_id = data.get('plan_id')
+    conversation_id = data.get('conversation_id')
+    task = data.get('task', '')
+
+    db = get_db()
+
+    # Derive task from plan if provided
+    if plan_id and not task:
+        plan_row = db.execute(
+            'SELECT * FROM plan WHERE id = ? AND author_id = ?',
+            (plan_id, g.user['id'])
+        ).fetchone()
+        if not plan_row:
+            return jsonify({'error': 'Plan not found'}), 404
+        task = plan_row['title']
+
+    # Derive task from conversation if provided
+    if conversation_id and not task:
+        conv = db.execute(
+            'SELECT * FROM conversation WHERE id = ? AND author_id = ?',
+            (conversation_id, g.user['id'])
+        ).fetchone()
+        if not conv:
+            return jsonify({'error': 'Conversation not found'}), 404
+        task = conv['title']
+
+    if not task:
+        return jsonify({'error': 'task or plan_id required'}), 400
+
+    # Build a mock patch proposal (M5 uses mock coder for generation)
+    if _router is not None:
+        from core.models.roles import ModelRole
+        adapter = _router.route_by_role(ModelRole.CODER)
+        prompt = f"Task: {task}\nGenerate a minimal code patch."
+        raw = adapter.generate(prompt)
+        summary = raw.splitlines()[0][:200] if raw else "Mock patch"
+    else:
+        summary = f"Mock patch for: {task[:80]}"
+
+    # Create a simple placeholder edit for demonstration
+    from core.patcher.patch import FileEdit
+    proposal = PatchProposal(
+        summary=summary,
+        edits=[
+            FileEdit(
+                path="example.py",
+                old_content="# TODO: implement\n",
+                new_content=f"# TODO: implement {task[:40]}\n",
+            )
+        ],
+    )
+
+    diff_text = DiffRenderer.render_patch(proposal)
+
+    cursor = db.execute(
+        'INSERT INTO patch (plan_id, conversation_id, author_id, title,'
+        ' summary, diff_text, edits_json, status)'
+        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        (
+            plan_id,
+            conversation_id,
+            g.user['id'],
+            task[:100],
+            proposal.summary,
+            diff_text,
+            proposal.to_json(),
+            'proposed',
+        )
+    )
+    db.commit()
+    patch_id = cursor.lastrowid
+
+    return jsonify({
+        'patch_id': patch_id,
+        'summary': proposal.summary,
+        'diff': diff_text,
+        'status': 'proposed',
+    })
+
+
+@bp.route('/patches')
+@login_required
+def patches():
+    """M5: List all patch proposals."""
+    db = get_db()
+    rows = db.execute(
+        'SELECT id, title, summary, status, created FROM patch'
+        ' WHERE author_id = ? ORDER BY created DESC',
+        (g.user['id'],)
+    ).fetchall()
+    return render_template('blog/patches.html', patches=rows)
+
+
+@bp.route('/patch/<int:patch_id>')
+@login_required
+def patch_detail(patch_id):
+    """M5: Display a patch proposal with diff and approve/reject buttons."""
+    db = get_db()
+    row = db.execute(
+        'SELECT * FROM patch WHERE id = ? AND author_id = ?',
+        (patch_id, g.user['id'])
+    ).fetchone()
+
+    if row is None:
+        abort(404)
+
+    patch = {
+        'id': row['id'],
+        'title': row['title'],
+        'summary': row['summary'],
+        'diff_text': row['diff_text'] or '',
+        'status': row['status'],
+        'created': row['created'],
+        'applied_at': row['applied_at'],
+    }
+
+    return render_template('blog/patch.html', patch=patch)
+
+
+@bp.route('/api/patch/<int:patch_id>/approve', methods=['POST'])
+@login_required
+def api_approve_patch(patch_id):
+    """API: Approve and apply a patch proposal."""
+    db = get_db()
+    row = db.execute(
+        'SELECT * FROM patch WHERE id = ? AND author_id = ?',
+        (patch_id, g.user['id'])
+    ).fetchone()
+
+    if row is None:
+        return jsonify({'error': 'Patch not found'}), 404
+
+    if row['status'] != 'proposed':
+        return jsonify({'error': f"Patch already {row['status']}"}), 400
+
+    if _patch_applier is None:
+        return jsonify({'error': 'Patch applier not available'}), 503
+
+    try:
+        proposal = PatchProposal.from_json(row['edits_json'] or '{}')
+    except Exception:
+        return jsonify({'error': 'Invalid patch data'}), 500
+
+    log = _patch_applier.apply(proposal)
+
+    db.execute(
+        "UPDATE patch SET status = 'applied', applied_at = CURRENT_TIMESTAMP,"
+        " audit_log = ? WHERE id = ?",
+        (json.dumps(log.to_dict()), patch_id)
+    )
+    db.commit()
+
+    return jsonify({
+        'success': True,
+        'status': 'applied',
+        'files_changed': log.files,
+        'errors': log.details.get('errors', []),
+    })
+
+
+@bp.route('/api/patch/<int:patch_id>/reject', methods=['POST'])
+@login_required
+def api_reject_patch(patch_id):
+    """API: Reject a patch proposal without applying changes."""
+    db = get_db()
+    row = db.execute(
+        'SELECT * FROM patch WHERE id = ? AND author_id = ?',
+        (patch_id, g.user['id'])
+    ).fetchone()
+
+    if row is None:
+        return jsonify({'error': 'Patch not found'}), 404
+
+    if row['status'] != 'proposed':
+        return jsonify({'error': f"Patch already {row['status']}"}), 400
+
+    if _patch_applier is not None:
+        try:
+            proposal = PatchProposal.from_json(row['edits_json'] or '{}')
+            log = _patch_applier.reject(proposal)
+            audit = json.dumps(log.to_dict())
+        except Exception:
+            audit = None
+    else:
+        audit = None
+
+    db.execute(
+        "UPDATE patch SET status = 'rejected', audit_log = ? WHERE id = ?",
+        (audit, patch_id)
+    )
+    db.commit()
+
+    return jsonify({'success': True, 'status': 'rejected'})
+
+
+@bp.route('/api/patches')
+@login_required
+def api_patches():
+    """API: List patch proposals."""
+    db = get_db()
+    rows = db.execute(
+        'SELECT id, title, summary, status, created FROM patch'
+        ' WHERE author_id = ? ORDER BY created DESC',
+        (g.user['id'],)
+    ).fetchall()
+
+    return jsonify({
+        'patches': [
+            {
+                'id': r['id'],
+                'title': r['title'],
+                'summary': r['summary'],
+                'status': r['status'],
+                'created': r['created'],
+            }
+            for r in rows
+        ]
+    })
+
+
+# ─── Command Routes (M6) ──────────────────────────────────────────────
+
+
+@bp.route('/api/command/run', methods=['POST'])
+@login_required
+def api_run_command():
+    """API: Run a command or create a pending execution request."""
+    data = request.get_json()
+    if not data or 'command' not in data:
+        return jsonify({'error': 'command is required'}), 400
+
+    command = data['command'].strip()
+    if not command:
+        return jsonify({'error': 'command cannot be empty'}), 400
+
+    if _command_runner is None:
+        return jsonify({'error': 'Command runner not available'}), 503
+
+    db = get_db()
+
+    # Validate command
+    try:
+        _command_runner.validate(command)
+    except ValueError as e:
+        # Denied immediately
+        cursor = db.execute(
+            'INSERT INTO command_log (author_id, command, status, stderr, details)'
+            ' VALUES (?, ?, ?, ?, ?)',
+            (g.user['id'], command, 'denied', str(e), json.dumps({'reason': str(e)}))
+        )
+        db.commit()
+        return jsonify({
+            'log_id': cursor.lastrowid,
+            'status': 'denied',
+            'error': str(e),
+        }), 403
+
+    # Check if approval is required
+    needs_approval = _command_guard.requires_approval(command)
+    working_dir = str(_project_root)
+
+    if needs_approval:
+        cursor = db.execute(
+            'INSERT INTO command_log (author_id, command, status, working_directory)'
+            ' VALUES (?, ?, ?, ?)',
+            (g.user['id'], command, 'pending', working_dir)
+        )
+        db.commit()
+        return jsonify({
+            'log_id': cursor.lastrowid,
+            'status': 'pending',
+            'message': 'Command requires approval before execution',
+            'requires_approval': True,
+        })
+
+    # Execute immediately
+    result = _command_runner.run(command, working_dir=working_dir, approved_by=g.user['username'])
+
+    cursor = db.execute(
+        'INSERT INTO command_log (author_id, command, status, stdout, stderr,'
+        ' exit_code, duration_ms, approved_by, working_directory, details)'
+        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (
+            g.user['id'],
+            command,
+            result.status,
+            result.stdout,
+            result.stderr,
+            result.exit_code,
+            result.duration_ms,
+            g.user['username'],
+            working_dir,
+            json.dumps({'log_id': result.log_id}),
+        )
+    )
+    db.commit()
+
+    return jsonify({
+        'log_id': cursor.lastrowid,
+        'status': result.status,
+        'stdout': result.stdout,
+        'stderr': result.stderr,
+        'exit_code': result.exit_code,
+        'duration_ms': result.duration_ms,
+    })
+
+
+@bp.route('/api/command/<int:log_id>/approve', methods=['POST'])
+@login_required
+def api_approve_command(log_id):
+    """API: Approve and run a pending command."""
+    db = get_db()
+    row = db.execute(
+        'SELECT * FROM command_log WHERE id = ? AND author_id = ?',
+        (log_id, g.user['id'])
+    ).fetchone()
+
+    if row is None:
+        return jsonify({'error': 'Command log not found'}), 404
+
+    if row['status'] != 'pending':
+        return jsonify({'error': f"Command already {row['status']}"}), 400
+
+    if _command_runner is None:
+        return jsonify({'error': 'Command runner not available'}), 503
+
+    command = row['command']
+    working_dir = row['working_directory'] or str(_project_root)
+
+    db.execute(
+        'UPDATE command_log SET status = ?, started_at = CURRENT_TIMESTAMP'
+        ' WHERE id = ?',
+        ('running', log_id)
+    )
+    db.commit()
+
+    result = _command_runner.run(
+        command, working_dir=working_dir, approved_by=g.user['username']
+    )
+
+    db.execute(
+        'UPDATE command_log SET status = ?, stdout = ?, stderr = ?,'
+        ' exit_code = ?, duration_ms = ?, approved_by = ?,'
+        ' completed_at = CURRENT_TIMESTAMP'
+        ' WHERE id = ?',
+        (
+            result.status,
+            result.stdout,
+            result.stderr,
+            result.exit_code,
+            result.duration_ms,
+            g.user['username'],
+            log_id,
+        )
+    )
+    db.commit()
+
+    return jsonify({
+        'success': True,
+        'status': result.status,
+        'stdout': result.stdout,
+        'stderr': result.stderr,
+        'exit_code': result.exit_code,
+        'duration_ms': result.duration_ms,
+    })
+
+
+@bp.route('/api/command/<int:log_id>/cancel', methods=['POST'])
+@login_required
+def api_cancel_command(log_id):
+    """API: Cancel/reject a pending command without running it."""
+    db = get_db()
+    row = db.execute(
+        'SELECT * FROM command_log WHERE id = ? AND author_id = ?',
+        (log_id, g.user['id'])
+    ).fetchone()
+
+    if row is None:
+        return jsonify({'error': 'Command log not found'}), 404
+
+    if row['status'] != 'pending':
+        return jsonify({'error': f"Command already {row['status']}"}), 400
+
+    db.execute(
+        "UPDATE command_log SET status = 'rejected', completed_at = CURRENT_TIMESTAMP"
+        " WHERE id = ?",
+        (log_id,)
+    )
+    db.commit()
+
+    return jsonify({'success': True, 'status': 'rejected'})
+
+
+@bp.route('/commands')
+@login_required
+def commands():
+    """M6: List command execution history."""
+    db = get_db()
+    rows = db.execute(
+        'SELECT id, command, status, exit_code, duration_ms, created FROM command_log'
+        ' WHERE author_id = ? ORDER BY created DESC',
+        (g.user['id'],)
+    ).fetchall()
+    return render_template('blog/commands.html', commands=rows)
+
+
+@bp.route('/command/<int:log_id>')
+@login_required
+def command_detail(log_id):
+    """M6: Display a single command execution detail."""
+    db = get_db()
+    row = db.execute(
+        'SELECT * FROM command_log WHERE id = ? AND author_id = ?',
+        (log_id, g.user['id'])
+    ).fetchone()
+
+    if row is None:
+        abort(404)
+
+    log = {
+        'id': row['id'],
+        'command': row['command'],
+        'status': row['status'],
+        'stdout': row['stdout'] or '',
+        'stderr': row['stderr'] or '',
+        'exit_code': row['exit_code'],
+        'duration_ms': row['duration_ms'],
+        'approved_by': row['approved_by'],
+        'working_directory': row['working_directory'],
+        'created': row['created'],
+        'started_at': row['started_at'],
+        'completed_at': row['completed_at'],
+    }
+
+    return render_template('blog/command.html', log=log)
+
+
+@bp.route('/api/commands')
+@login_required
+def api_commands():
+    """API: List command logs."""
+    db = get_db()
+    rows = db.execute(
+        'SELECT id, command, status, exit_code, duration_ms, created FROM command_log'
+        ' WHERE author_id = ? ORDER BY created DESC',
+        (g.user['id'],)
+    ).fetchall()
+
+    return jsonify({
+        'commands': [
+            {
+                'id': r['id'],
+                'command': r['command'],
+                'status': r['status'],
+                'exit_code': r['exit_code'],
+                'duration_ms': r['duration_ms'],
+                'created': r['created'],
+            }
+            for r in rows
+        ]
+    })
+
+
+# ─── Repo Routes (M7) ─────────────────────────────────────────────────
+
+
+@bp.route('/repos')
+@login_required
+def repos():
+    """M7: List registered repositories."""
+    db = get_db()
+    rows = db.execute(
+        'SELECT id, name, path, created FROM repo'
+        ' WHERE author_id = ? ORDER BY created DESC',
+        (g.user['id'],)
+    ).fetchall()
+    return render_template('blog/repos.html', repos=rows)
+
+
+@bp.route('/repo/<int:repo_id>')
+@login_required
+def repo_detail(repo_id):
+    """M7: Browse a repository."""
+    db = get_db()
+    row = db.execute(
+        'SELECT * FROM repo WHERE id = ? AND author_id = ?',
+        (repo_id, g.user['id'])
+    ).fetchone()
+
+    if row is None:
+        abort(404)
+
+    rel_path = request.args.get('path', '.')
+    try:
+        from core.repo.browser import RepoBrowser
+        browser = RepoBrowser(row['path'])
+        entries = browser.list_dir(rel_path)
+    except Exception as e:
+        flash(str(e))
+        entries = []
+
+    return render_template(
+        'blog/repo.html',
+        repo=row,
+        entries=entries,
+        current_path=rel_path,
+    )
+
+
+@bp.route('/repo/<int:repo_id>/file')
+@login_required
+def repo_file(repo_id):
+    """M7: View a file in a repository."""
+    db = get_db()
+    row = db.execute(
+        'SELECT * FROM repo WHERE id = ? AND author_id = ?',
+        (repo_id, g.user['id'])
+    ).fetchone()
+
+    if row is None:
+        abort(404)
+
+    rel_path = request.args.get('path', '')
+    if not rel_path:
+        abort(400)
+
+    try:
+        from core.repo.browser import RepoBrowser
+        browser = RepoBrowser(row['path'])
+        content = browser.read_file(rel_path)
+    except Exception as e:
+        flash(str(e))
+        content = ''
+
+    return render_template(
+        'blog/repo_file.html',
+        repo=row,
+        file_path=rel_path,
+        content=content,
+    )
+
+
+@bp.route('/api/repo', methods=['POST'])
+@login_required
+def api_create_repo():
+    """API: Register a new repository."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid request'}), 400
+
+    name = data.get('name', '').strip()
+    path = data.get('path', '').strip()
+
+    if not name or not path:
+        return jsonify({'error': 'name and path are required'}), 400
+
+    # Validate path exists
+    from pathlib import Path
+    p = Path(path)
+    if not p.exists() or not p.is_dir():
+        return jsonify({'error': 'Path does not exist or is not a directory'}), 400
+
+    db = get_db()
+    cursor = db.execute(
+        'INSERT INTO repo (author_id, name, path) VALUES (?, ?, ?)',
+        (g.user['id'], name, str(p.resolve()))
+    )
+    db.commit()
+
+    return jsonify({'repo_id': cursor.lastrowid, 'name': name, 'path': str(p.resolve())})
+
+
+@bp.route('/api/repos')
+@login_required
+def api_repos():
+    """API: List registered repositories."""
+    db = get_db()
+    rows = db.execute(
+        'SELECT id, name, path, created FROM repo'
+        ' WHERE author_id = ? ORDER BY created DESC',
+        (g.user['id'],)
+    ).fetchall()
+
+    return jsonify({
+        'repos': [
+            {'id': r['id'], 'name': r['name'], 'path': r['path'], 'created': r['created']}
+            for r in rows
+        ]
+    })
+
+
+@bp.route('/api/repo/<int:repo_id>/search')
+@login_required
+def api_repo_search(repo_id):
+    """API: Search for a keyword in a repository."""
+    db = get_db()
+    row = db.execute(
+        'SELECT * FROM repo WHERE id = ? AND author_id = ?',
+        (repo_id, g.user['id'])
+    ).fetchone()
+
+    if row is None:
+        return jsonify({'error': 'Repo not found'}), 404
+
+    keyword = request.args.get('q', '').strip()
+    if not keyword:
+        return jsonify({'error': 'q parameter required'}), 400
+
+    try:
+        from core.repo.browser import RepoBrowser
+        browser = RepoBrowser(row['path'])
+        results = browser.search_keyword(keyword)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    return jsonify({'keyword': keyword, 'results': results})

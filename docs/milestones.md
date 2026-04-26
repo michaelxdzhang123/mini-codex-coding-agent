@@ -160,7 +160,7 @@ Add minimal local RAG support for project knowledge retrieval.
 
 ---
 
-## M4 — Planning and Context Builder
+## M4 — Planning and Context Builder ✅ Completed
 
 ### Goal
 Generate structured plans using local models and relevant local knowledge.
@@ -186,6 +186,20 @@ Generate structured plans using local models and relevant local knowledge.
 - plan UI
 - structured plan JSON
 
+### Delivered
+- `core/planner/plan.py` — `Plan` dataclass with JSON serialization
+- `core/planner/context_builder.py` — `ContextBuilder` that combines task + repo files + RAG chunks
+- `core/planner/planner.py` — `Planner` using M2 instruct model; structured section parser + fallback heuristic
+- `tests/test_planner.py` — 11 tests covering plan roundtrip, parsing, fallback, read-only safety
+- Flask integration:
+  - `plan` table in DB with migration support
+  - `POST /api/plan` — generate plan from conversation
+  - `GET /plans` and `GET /plan/<id>` — plan list and detail pages
+  - `GET /api/plans` — API list
+  - Templates: `plans.html`, `plan.html`
+  - "Generate Plan" button in chat UI
+  - "Plans" card on dashboard menu
+
 ### Done When
 - user can generate a plan from a task
 - plan references relevant files and knowledge
@@ -194,7 +208,7 @@ Generate structured plans using local models and relevant local knowledge.
 
 ---
 
-## M5 — Patch Proposal and Approval
+## M5 — Patch Proposal and Approval ✅ Completed
 
 ### Goal
 Generate controlled code edits and require approval before apply.
@@ -215,6 +229,22 @@ Generate controlled code edits and require approval before apply.
 - approval/rejection flow
 - protected file enforcement
 
+### Delivered
+- `core/patcher/patch.py` — `PatchProposal` and `FileEdit` dataclasses with JSON serialization
+- `core/patcher/diff.py` — `DiffRenderer` using `difflib.unified_diff`
+- `core/patcher/guard.py` — `PathGuard` with path-traversal blocking, workspace roots, and protected file enforcement
+- `core/patcher/applier.py` — `PatchApplier` with `PatchAuditLog` (apply/reject/audit)
+- `tests/test_patcher.py` — 14 tests covering diff rendering, path guard, protected files, apply/reject, audit logs
+- Flask integration:
+  - `patch` table in DB with migration support
+  - `POST /api/patch/propose` — create proposal from plan/conversation
+  - `GET /patches` and `GET /patch/<id>` — list and review pages
+  - `POST /api/patch/<id>/approve` — apply after validation
+  - `POST /api/patch/<id>/reject` — reject without modifying files
+  - Templates: `patches.html`, `patch.html` with diff preview and approve/reject buttons
+  - "Propose Patch" button on plan detail page
+  - "Patches" card on dashboard menu
+
 ### Done When
 - user can review patch proposals
 - files are not modified silently
@@ -223,7 +253,7 @@ Generate controlled code edits and require approval before apply.
 
 ---
 
-## M6 — Safe Command Runner
+## M6 — Safe Command Runner ✅ Completed
 
 ### Goal
 Allow safe development commands through controlled entry points.
@@ -242,6 +272,22 @@ Allow safe development commands through controlled entry points.
 - command audit logs
 - command review page
 - whitelist-backed enforcement
+
+### Delivered
+- `core/commands/config.py` — `ToolWhitelistLoader` parsing `configs/tool_whitelist.yaml`
+- `core/commands/guard.py` — `CommandGuard` with blocked-pattern checks, exact-match allowlist, and approval categorization
+- `core/commands/runner.py` — `SafeCommandRunner` using `subprocess.run` with timeout, stdout/stderr/exit code capture
+- `core/commands/audit.py` — `ExecutionLog` with full audit trail
+- `tests/test_commands.py` — 14 tests covering config loading, guard allow/deny, approval logic, runner execution, audit accumulation
+- Fixed malformed `configs/tool_whitelist.yaml` (moved `index-knowledge` and `query-knowledge` into `allowed_commands`)
+- Flask integration:
+  - `command_log` table in DB with migration support
+  - `POST /api/command/run` — validates, runs immediately or creates pending request
+  - `POST /api/command/<id>/approve` — approves and runs pending command
+  - `POST /api/command/<id>/cancel` — cancels pending command
+  - `GET /commands` and `GET /command/<id>` — list and detail pages
+  - Templates: `commands.html` (with inline run form), `command.html` (with approve/cancel buttons)
+  - "Commands" card on dashboard menu
 
 ### Done When
 - allowed commands run successfully

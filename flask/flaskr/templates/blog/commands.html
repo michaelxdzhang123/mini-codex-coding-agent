@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+
+{% block title %}Commands - CodeAssist AI{% endblock %}
+
+{% block content %}
+<div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="{{ url_for('blog.menu') }}" class="sidebar-brand">
+                <span class="brand-icon">&lt;/&gt;</span>
+                <span class="brand-text">CodeAssist</span>
+            </a>
+            <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/>
+                </svg>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('blog.chat') }}" class="sidebar-new-chat">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                New Chat
+            </a>
+
+            <div class="sidebar-section-title">Menu</div>
+            <a href="{{ url_for('blog.repos') }}" class="sidebar-conv-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span class="conv-title">Repos</span>
+            </a>
+            <a href="{{ url_for('blog.plans') }}" class="sidebar-conv-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 11l6-6M7 17l4-4-4-4M17 19l4-4-4-4"/>
+                </svg>
+                <span class="conv-title">Plans</span>
+            </a>
+            <a href="{{ url_for('blog.patches') }}" class="sidebar-conv-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <span class="conv-title">Patches</span>
+            </a>
+            <a href="{{ url_for('blog.commands') }}" class="sidebar-conv-item active">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+                </svg>
+                <span class="conv-title">Commands</span>
+            </a>
+            <a href="{{ url_for('blog.history') }}" class="sidebar-conv-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                </svg>
+                <span class="conv-title">History</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="{{ url_for('blog.settings') }}" class="sidebar-footer-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                Settings
+            </a>
+            <div class="sidebar-user">
+                <div class="user-avatar">{{ g.user.username[0]|upper }}</div>
+                <span class="user-name">{{ g.user.username }}</span>
+                <a href="{{ url_for('auth.logout') }}" class="user-logout" title="Logout">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="history-container">
+            <div class="history-header">
+                <h1 class="history-title">Command History</h1>
+                <p class="history-subtitle">{{ commands|length }} execution(s) total</p>
+            </div>
+
+            <!-- Run Command Form -->
+            <div style="margin-bottom: 2rem; padding: 1.25rem; background: var(--surface); border-radius: 12px; border: 1px solid var(--border);">
+                <h2 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Run Safe Command</h2>
+                <div style="display: flex; gap: 0.75rem;">
+                    <input type="text" id="cmdInput" placeholder="e.g. make test" style="flex: 1; padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text-primary); font-size: 0.875rem;">
+                    <button onclick="runCommand()" class="history-btn history-btn-primary">Run</button>
+                </div>
+                <div id="cmdResult" style="display: none; margin-top: 0.75rem; padding: 0.75rem; border-radius: 8px; font-size: 0.875rem;"></div>
+            </div>
+
+            {% if commands %}
+            <div class="history-list">
+                {% for c in commands %}
+                <div class="history-item">
+                    <div class="history-item-left">
+                        <div class="history-item-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+                            </svg>
+                        </div>
+                        <div class="history-item-info">
+                            <a href="{{ url_for('blog.command_detail', log_id=c.id) }}" class="history-item-title">{{ c.command }}</a>
+                            <div class="history-item-meta">
+                                <span class="status-badge status-{{ c.status }}">{{ c.status }}</span>
+                                {% if c.exit_code is not none %}
+                                <span class="meta-sep">&#xb7;</span>
+                                <span>exit={{ c.exit_code }}</span>
+                                {% endif %}
+                                {% if c.duration_ms %}
+                                <span class="meta-sep">&#xb7;</span>
+                                <span>{{ c.duration_ms }}ms</span>
+                                {% endif %}
+                                <span class="meta-sep">&#xb7;</span>
+                                <span>{{ c.created }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="history-item-actions">
+                        <a href="{{ url_for('blog.command_detail', log_id=c.id) }}" class="history-btn history-btn-primary">View</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="history-empty">
+                <div class="history-empty-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                        <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+                    </svg>
+                </div>
+                <h3>No commands yet</h3>
+                <p>Run an approved command to see results here.</p>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+</div>
+
+<style>
+.status-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+.status-pending { background: rgba(240, 136, 62, 0.15); color: #F0883E; }
+.status-success { background: rgba(63, 185, 80, 0.15); color: #3FB950; }
+.status-failure { background: rgba(248, 81, 73, 0.15); color: #F85149; }
+.status-denied { background: rgba(248, 81, 73, 0.15); color: #F85149; }
+.status-rejected { background: rgba(160, 160, 160, 0.15); color: #a0a0a0; }
+.status-running { background: rgba(88, 166, 255, 0.15); color: #58A6FF; }
+.status-timeout { background: rgba(240, 136, 62, 0.15); color: #F0883E; }
+</style>
+
+<script>
+async function runCommand() {
+    const input = document.getElementById('cmdInput');
+    const result = document.getElementById('cmdResult');
+    const cmd = input.value.trim();
+    if (!cmd) return;
+
+    result.style.display = 'block';
+    result.style.background = 'rgba(88, 166, 255, 0.1)';
+    result.style.color = '#58A6FF';
+    result.style.border = '1px solid rgba(88, 166, 255, 0.3)';
+    result.textContent = 'Running...';
+
+    try {
+        const res = await fetch('/api/command/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command: cmd })
+        });
+        const data = await res.json();
+
+        if (data.status === 'pending') {
+            result.style.background = 'rgba(240, 136, 62, 0.1)';
+            result.style.color = '#F0883E';
+            result.style.border = '1px solid rgba(240, 136, 62, 0.3)';
+            result.textContent = 'Pending approval. Log ID: ' + data.log_id;
+            setTimeout(() => window.location.reload(), 1000);
+        } else if (data.status === 'denied') {
+            result.style.background = 'rgba(248, 81, 73, 0.1)';
+            result.style.color = '#F85149';
+            result.style.border = '1px solid rgba(248, 81, 73, 0.3)';
+            result.textContent = 'Denied: ' + (data.error || 'Unknown reason');
+        } else {
+            result.style.background = data.status === 'success' ? 'rgba(63, 185, 80, 0.1)' : 'rgba(248, 81, 73, 0.1)';
+            result.style.color = data.status === 'success' ? '#3FB950' : '#F85149';
+            result.style.border = `1px solid ${data.status === 'success' ? 'rgba(63, 185, 80, 0.3)' : 'rgba(248, 81, 73, 0.3)'}`;
+            result.textContent = `${data.status} (exit=${data.exit_code}, ${data.duration_ms}ms)`;
+            setTimeout(() => window.location.reload(), 800);
+        }
+    } catch (e) {
+        result.style.background = 'rgba(248, 81, 73, 0.1)';
+        result.style.color = '#F85149';
+        result.style.border = '1px solid rgba(248, 81, 73, 0.3)';
+        result.textContent = 'Network error';
+    }
+}
+
+const sidebar = document.getElementById('sidebar');
+const toggle = document.getElementById('sidebarToggle');
+if (toggle && sidebar) {
+    toggle.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+    });
+}
+</script>
+{% endblock %}

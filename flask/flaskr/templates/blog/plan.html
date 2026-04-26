@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ plan.title }} - Plan{% endblock %}
+
+{% block content %}
+<div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="{{ url_for('blog.menu') }}" class="sidebar-brand">
+                <span class="brand-icon">&lt;/&gt;</span>
+                <span class="brand-text">CodeAssist</span>
+            </a>
+            <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/>
+                </svg>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('blog.chat') }}" class="sidebar-new-chat">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                New Chat
+            </a>
+
+            <div class="sidebar-section-title">Menu</div>
+            <a href="{{ url_for('blog.repos') }}" class="sidebar-conv-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span class="conv-title">Repos</span>
+            </a>
+            <a href="{{ url_for('blog.plans') }}" class="sidebar-conv-item active">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 11l6-6M7 17l4-4-4-4M17 19l4-4-4-4"/>
+                </svg>
+                <span class="conv-title">Plans</span>
+            </a>
+            <a href="{{ url_for('blog.history') }}" class="sidebar-conv-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                </svg>
+                <span class="conv-title">History</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="{{ url_for('blog.settings') }}" class="sidebar-footer-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                Settings
+            </a>
+            <div class="sidebar-user">
+                <div class="user-avatar">{{ g.user.username[0]|upper }}</div>
+                <span class="user-name">{{ g.user.username }}</span>
+                <a href="{{ url_for('auth.logout') }}" class="user-logout" title="Logout">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="plan-container" style="padding: 2rem; max-width: 800px; margin: 0 auto;">
+            <div style="margin-bottom: 2rem;">
+                <a href="{{ url_for('blog.plans') }}" style="color: var(--text-secondary); text-decoration: none; font-size: 0.875rem;">
+                    &larr; Back to Plans
+                </a>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+                <div>
+                    <h1 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-primary);">
+                        {{ plan.title }}
+                    </h1>
+                    <p style="color: var(--text-secondary); font-size: 0.875rem;">
+                        Created: {{ plan.created }}
+                    </p>
+                </div>
+                <button id="proposePatchBtn" class="history-btn history-btn-primary" onclick="proposePatch()">
+                    Propose Patch
+                </button>
+            </div>
+            <div id="patchResult" style="display: none; margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.875rem;"></div>
+
+            {% if plan.summary %}
+            <div class="plan-section" style="margin-bottom: 2rem; padding: 1.25rem; background: var(--surface); border-radius: 12px; border: 1px solid var(--border);">
+                <h2 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Summary</h2>
+                <p style="color: var(--text-secondary); line-height: 1.6;">{{ plan.summary }}</p>
+            </div>
+            {% endif %}
+
+            {% if plan.assumptions %}
+            <div class="plan-section" style="margin-bottom: 2rem;">
+                <h2 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Assumptions</h2>
+                <ul style="list-style: disc; padding-left: 1.25rem; color: var(--text-secondary); line-height: 1.8;">
+                    {% for item in plan.assumptions %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if plan.steps %}
+            <div class="plan-section" style="margin-bottom: 2rem;">
+                <h2 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Steps</h2>
+                <ol style="list-style: decimal; padding-left: 1.25rem; color: var(--text-secondary); line-height: 1.8;">
+                    {% for item in plan.steps %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ol>
+            </div>
+            {% endif %}
+
+            {% if plan.files_to_inspect %}
+            <div class="plan-section" style="margin-bottom: 2rem;">
+                <h2 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Files to Inspect</h2>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    {% for item in plan.files_to_inspect %}
+                    <code style="background: var(--surface); padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.8125rem; color: var(--accent); border: 1px solid var(--border);">{{ item }}</code>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if plan.knowledge_to_consult %}
+            <div class="plan-section" style="margin-bottom: 2rem;">
+                <h2 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Knowledge to Consult</h2>
+                <ul style="list-style: disc; padding-left: 1.25rem; color: var(--text-secondary); line-height: 1.8;">
+                    {% for item in plan.knowledge_to_consult %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if plan.commands_to_run %}
+            <div class="plan-section" style="margin-bottom: 2rem;">
+                <h2 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Commands to Run</h2>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    {% for item in plan.commands_to_run %}
+                    <code style="background: var(--surface); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.8125rem; color: var(--accent); border: 1px solid var(--border); font-family: 'JetBrains Mono', monospace;">{{ item }}</code>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if plan.risks %}
+            <div class="plan-section" style="margin-bottom: 2rem;">
+                <h2 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Risks</h2>
+                <ul style="list-style: disc; padding-left: 1.25rem; color: var(--text-secondary); line-height: 1.8;">
+                    {% for item in plan.risks %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+</div>
+
+<script>
+async function proposePatch() {
+    const btn = document.getElementById('proposePatchBtn');
+    const result = document.getElementById('patchResult');
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    try {
+        const res = await fetch('/api/patch/propose', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan_id: {{ plan.id }} })
+        });
+        const data = await res.json();
+        if (data.patch_id) {
+            window.location.href = `/patch/${data.patch_id}`;
+        } else {
+            result.style.display = 'block';
+            result.style.background = 'rgba(248, 81, 73, 0.1)';
+            result.style.color = '#F85149';
+            result.style.border = '1px solid rgba(248, 81, 73, 0.3)';
+            result.textContent = data.error || 'Failed to propose patch';
+        }
+    } catch (e) {
+        result.style.display = 'block';
+        result.style.background = 'rgba(248, 81, 73, 0.1)';
+        result.style.color = '#F85149';
+        result.style.border = '1px solid rgba(248, 81, 73, 0.3)';
+        result.textContent = 'Network error';
+    } finally {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    }
+}
+
+const sidebar = document.getElementById('sidebar');
+const toggle = document.getElementById('sidebarToggle');
+if (toggle && sidebar) {
+    toggle.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+    });
+}
+</script>
+{% endblock %}

@@ -54,6 +54,11 @@
                     <span class="rag-toggle-slider"></span>
                     <span class="rag-toggle-label">RAG</span>
                 </label>
+                <button class="chat-upload-btn" id="planBtn" title="Generate plan" {% if not current_conv %}style="display:none"{% endif %}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 11l6-6M7 17l4-4-4-4M17 19l4-4-4-4"/>
+                    </svg>
+                </button>
                 <button class="chat-upload-btn" id="uploadBtn" title="Upload document">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
@@ -390,6 +395,35 @@ function escapeHtml(text) {
 function showToast(message, type = 'success') {
     // Simple toast - could be expanded
     console.log(`[${type}] ${message}`);
+}
+
+// M4: Generate plan from current conversation
+const planBtn = document.getElementById('planBtn');
+if (planBtn) {
+    planBtn.addEventListener('click', async () => {
+        const convId = new URLSearchParams(window.location.search).get('conv');
+        if (!convId) return;
+        planBtn.disabled = true;
+        planBtn.style.opacity = '0.5';
+        try {
+            const res = await fetch('/api/plan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ conversation_id: parseInt(convId) })
+            });
+            const data = await res.json();
+            if (data.plan_id) {
+                window.location.href = `/plan/${data.plan_id}`;
+            } else {
+                showToast(data.error || 'Plan generation failed', 'error');
+            }
+        } catch (e) {
+            showToast('Network error', 'error');
+        } finally {
+            planBtn.disabled = false;
+            planBtn.style.opacity = '1';
+        }
+    });
 }
 </script>
 {% endblock %}

@@ -18,12 +18,15 @@ if __name__ == '__main__':
 
     # Initialize database if it doesn't exist
     db_path = os.path.join(app.instance_path, 'flaskr.sqlite')
-    if not os.path.exists(db_path):
-        print("[INFO] Initializing database...")
-        with app.app_context():
-            from flaskr.db import init_db
+    with app.app_context():
+        from flaskr.db import init_db, migrate_db
+        if not os.path.exists(db_path):
+            print("[INFO] Initializing database...")
             init_db()
-        print("[INFO] Database initialized.")
+            print("[INFO] Database initialized.")
+        else:
+            migrate_db()
+            print("[INFO] Database migrated.")
 
     print("=" * 60)
     print("  CodeAssist AI - Flask Server")
